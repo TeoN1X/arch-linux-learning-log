@@ -1,157 +1,196 @@
-#arch linux installation without 'archinstall' from scratch
-
 [*] = command runs silently but takes effect  
 [#] = command produces harmless output  
 :warning: = important caution or risk  
 
-#env-setup
-setterm -blength 0  # Disable terminal beep/bell sound [*]  
-set bell-style none  # Disable shell bell on empty history access [*]  
+== env-setup ==  
+// Disable terminal bell/beep and shell history beep  
+setterm -blength 0  # [*]  
+set bell-style none  # [*]  
 
-#mnt-backup
-# If you're reinstalling Arch, back up important files before wiping the disk.
-# The steps below may repeat later mount instructions, but that's fine.
-mount /dev/your_usb /mnt  # Attach (mount) partition your_usb to /mnt directory  
-lsblk  # Show block devices and partitions [#]  
-mkdir /mnt/your_usb  # Create directory for USB mount point [*]  
-ls /mnt/your_usb  # List files and folders inside the mounted USB drive [#]  
-df -h /mnt/your_usb  # Show disk usage of the USB in human-readable format [#]  
-cp -r ~/folder /mnt/your_usb  # Copy folder and all contents to USB (recursive)  
-cp file.txt /mnt/your_usb  # Copy single file to USB  
-cp -a folder /mnt/your_usb  # Copy folder with attributes (permissions, timestamps, etc.)
+== mnt-backup ==  
+// If you're reinstalling Arch, back up important files before wiping the disk  
+mount /dev/your_usb /mnt  # Mount backup USB device [#]  
+lsblk  # List block devices to identify your USB [#]  
+mkdir /mnt/your_usb  # Create mount point for USB [*]  
+ls /mnt/your_usb  # List files inside mounted USB [#]  
+df -h /mnt/your_usb  # Show USB disk usage in human-readable format [#]  
+cp -r ~/your_folder /mnt/your_usb  # Copy folder recursively to USB  
+cp your_file.txt /mnt/your_usb  # Copy single file to USB  
+cp -a your_folder /mnt/your_usb  # Copy with attributes (permissions, timestamps)
 
-#boot  
-# BIOS boot order (UEFI)  
-# Move "EFI USB Device (your USB name)" to top to boot into Arch installer  
+== boot ==  
+// BIOS (UEFI) setup: move "EFI USB Device" to top in boot order  
+// Use F2/F12/DEL to enter BIOS depending on your device
 
-#wifi-setup
-rfkill unblock wifi  # Enable (unblock) wireless device [*]  
-iwctl  # Launch iwd interactive shell  
-# Inside iwctl:
-device list  # List available Wi-Fi devices; look for "Powered: on" [#]  
-station device_name scan  # Scan for Wi-Fi networks; no output = no signal or failed [#]  
-station device_name get-networks  # Show available networks; empty = failure [#]  
-station device_name connect "your_SSID"  # :warning: Important: wrap SSID in double quotes if it contains spaces or special characters  
+== wifi-setup ==  
+rfkill unblock wifi  # Enable Wi-Fi device [*]  
+iwctl  # Enter interactive Wi-Fi shell
 
-#debug-tools (outside iwctl)  
-dmesg | grep firmware  # Check for firmware errors; look for "missing" or "failed to load" [#]  
-ip link  # Show network interfaces; look for DOWN state [#]  
-iw dev  # Show wireless info; confirm device exists and is UP [#]  
+// Inside iwctl:
+device list  # Show Wi-Fi devices; check "Powered: on" [#]  
+station your_device_name scan  # Scan for networks (no output = silent) [#]  
+station your_device_name get-networks  # Show available SSIDs [#]  
+station your_device_name connect "your_SSID"  # :warning: SSID must be quoted if it has spaces or symbols
 
-#timezone  
+== debug-tools ==  
+dmesg | grep firmware  # Check for missing firmware errors [#]  
+ip link  # Show all network interfaces [#]  
+iw dev  # Show Wi-Fi device state [#]  
+
+== timezone ==  
 ln -sf /usr/share/zoneinfo/Your_Region/Your_City /etc/localtime  # Set system timezone [*]  
-hwclock --systohc  # Sync hardware clock to system time [*]  
-timedatectl set-ntp true  # Enable automatic time sync (NTP) [*]  
-timedatectl status  # Check current time and sync state [#]  
+hwclock --systohc  # Generate /etc/adjtime by syncing hardware clock [*]  
+timedatectl set-ntp true  # Enable NTP auto time sync [*]  
+timedatectl status  # Check system time, NTP, timezone status [#]  
 
-#disk-prep  
-cfdisk /dev/your_disk  # Launch partition editor  
-# Inside cfdisk:
-# 1. Delete existing partitions if needed  
-# 2. Create:
-#    - EFI partition: 512M, Type: EFI System  
-#    - Swap partition: 4G (or match RAM), Type: Linux swap  
-#    - Root partition: remaining space, Type: Linux filesystem  
-# 3. Write changes, confirm with 'yes', then Quit  
+== disk-prep ==  
+lsblk  # List current block devices and partition layout [#]  
+cfdisk /dev/your_disk  # Open partition editor
 
-#mount  
-# Mounting is like telling your system the route to each storage area.  
-mkswap /dev/your_swap_partition  # Format swap partition  
-mkfs.ext4 /dev/your_root_partition  # Format root partition  
-swapon /dev/your_swap_partition  # Enable swap [*]  
-mount /dev/your_root_partition /mnt  # Mount root to /mnt [#] (/mnt is a temp mount point used during installation)  
-mkdir -p /mnt/boot/efi  # Create EFI mount point [*] (/boot/efi is where EFI bootloaders go)  
-mount /dev/your_efi_partition /mnt/boot/efi  # Mount EFI partition [#]  
-# Tip: Use `lsblk` to identify your_efi_partition etc.  
+// Inside cfdisk:
+ - Delete existing partitions if any  
+ - Create partitions as follows:
+     - EFI Partition: 512M, Type "EFI System"  
+     - Swap Partition: 4G or same as your RAM, Type "Linux swap"  
+     - Root Partition: remaining space, Type "Linux filesystem"  
+ - Choose [Write], type 'yes', then [Quit]
 
-#mirror-setup  
-# :warning: If you're in China, default mirrors may fail. Use working mirrors manually:
+== mount ==  
+// Mounting tells the system where each storage volume is located  
+mkswap /dev/your_swap_partition  # Format swap  
+mkfs.ext4 /dev/your_root_partition  # Format root with ext4  
+swapon /dev/your_swap_partition  # Enable swap partition [*]  
+mount /dev/your_root_partition /mnt  # Mount root to /mnt [#] (/mnt is temp mount point)  
+mkdir -p /mnt/boot/efi  # Create EFI mount point [*]  
+mount /dev/your_efi_partition /mnt/boot/efi  # Mount EFI partition to correct location [#]  
+// Use `lsblk` to verify partition names before mounting
+
+== mirror-setup ==  
+// :warning: If you're in China, default mirrors may fail. Replace mirrorlist manually:
 cat > /etc/pacman.d/mirrorlist <<EOF  
 Server = https://mirrors.hit.edu.cn/archlinux/$repo/os/$arch  
 Server = https://mirrors.163.com/archlinux/$repo/os/$arch  
 Server = https://mirror.sjtu.edu.cn/archlinux/$repo/os/$arch  
 EOF
 
-# Test a mirror:
-curl -I https://your.mirror.url/archlinux/core/os/x86_64/  # Look for HTTP/2 200 [#]
+curl -I https://your.mirror.url/archlinux/core/os/x86_64/  # Test mirror: look for HTTP/2 200 [#]  
+reflector --country China --age 12 --sort rate --save /etc/pacman.d/mirrorlist  # Update mirrorlist [#]  
+// You can use ↑ and ↓ to reuse previously typed commands
 
-# Update mirrors:
-reflector --country China --age 12 --sort rate --save /etc/pacman.d/mirrorlist
+== base-install ==  
+pacstrap -K /mnt base linux linux-firmware neovim kitty zsh starship  # Install base system and terminal tools [#]
+genfstab -U /mnt >> /mnt/etc/fstab  # Generate system mount config file [*] (/etc/fstab defines what to mount on boot)
 
-# Tip: Use up/down arrow keys to edit and reuse previous commands!
+== zsh-starship-setup ==  
+chsh -s /bin/zsh your_username  # Set Zsh as default shell for your user [*]  
+echo 'eval "$(starship init zsh)"' >> /home/your_username/.zshrc  # Load Starship prompt in Zsh [*]  
 
-#base-install  
-pacstrap -K /mnt base linux linux-firmware neovim  # Install base system, kernel, firmware, and editor [#]  
-genfstab -U /mnt >> /mnt/etc/fstab  # Generate system mount config file [*] (/etc/fstab defines what to mount on boot)  
-arch-chroot /mnt  # Enter installed system as root shell [#]  
+mkdir -p /home/your_username/.config  # Create config directory if not exist [*]  
+nano /home/your_username/.config/starship.toml  # Manually edit Starship config
+
+// In the editor, type or paste the following content:
+add_newline = false
+
+[character]
+success_symbol = "->"
+error_symbol = "!!"
+
+[directory]
+truncation_length = 3
+style = "blue"
+
+[username]
+show_always = true
+style_user = "yellow"
+
+[hostname]
+ssh_only = false
+style = "green"
+
+== chroot ==  
+arch-chroot /mnt  # Enter the newly installed system environment [#]
+
+== locale ==  
 ln -sf /usr/share/zoneinfo/Your_Region/Your_City /etc/localtime  # Set timezone [*]  
-hwclock --systohc  # Sync hardware clock to system time [*]  
+hwclock --systohc  # Sync hardware clock to system time [*]
+
 echo "your_locale UTF-8" > /etc/locale.gen  # Enable desired UTF-8 locale (e.g. zh_CN.UTF-8) [*]  
-locale-gen  # Generate locale definitions [#]  
-echo "LANG=your_locale" > /etc/locale.conf  # Set system language environment [*]  
-echo "your_hostname" > /etc/hostname  # Set machine hostname [*]  
+locale-gen  # Generate compiled locale info [#]  
+echo "LANG=your_locale" > /etc/locale.conf  # Set global language environment [*]
+
+== hostname ==  
+echo "your_hostname" > /etc/hostname  # Set your system's hostname [*]  
+
 cat > /etc/hosts <<EOF  
 127.0.0.1   localhost  
 ::1         localhost  
 127.0.1.1   your_hostname.localdomain your_hostname  
-EOF  
-passwd  # Set root password [#]  
+EOF
 
-#paru-install
+== root-password ==  
+passwd  # Set root password [#]
 
-git clone https://aur.archlinux.org/paru-bin.git  # Clone paru binary build script [#]  
-cd paru-bin  # Enter paru directory to verify it exists [#]  
-cd ~  # Return to home directory [*]  
-cd paru-bin  # Re-enter the cloned directory under home  
-makepkg -si  # Build and install paru [#]
+== paru-install ==  
+git clone https://aur.archlinux.org/paru-bin.git  # Clone paru AUR helper [#]  
+cd paru-bin  # Enter paru-bin directory [#]  
+cd ~  # Return to home to ensure re-entry path is correct [*]  
+cd paru-bin  # Re-enter paru-bin under home path  
+makepkg -si  # Build and install paru from PKGBUILD [#]  
+// If `cd ~` is skipped, makepkg may fail due to incorrect working directory
 
-# Tip: If 'paru-bin' was not cloned under home (~), step 4 may fail.
+== user-setup ==  
+useradd -m your_username  # Create new user and home directory [*]  
+passwd your_username  # Set user password [#]  
+usermod -aG wheel your_username  # Add user to sudo group [*]  
 
-#user-setup  
-useradd -m your_username  # Create new user with home directory [*]  
-passwd your_username  # Set password for your user [#]  
-usermod -aG wheel your_username  # Add user to 'wheel' group for sudo access [*]  
-EDITOR=your_editor_name visudo  # Safe editing of sudoers file (e.g. nvim, nano, micro) [#]  
-# Uncomment: %wheel ALL=(ALL:ALL) ALL  
+EDITOR=your_editor_name visudo  # Safely edit sudoers file [#]  
+// Uncomment this line to allow sudo for wheel group:  
+// %wheel ALL=(ALL:ALL) ALL  
+// Exit visudo properly based on your editor (e.g. :wq in nvim)
 
-#hyprland-setup  
-sudo pacman -S hyprland xdg-desktop-portal-hyprland xdg-desktop-portal  # Install Hyprland and Wayland portal [#]  
-mkdir -p /home/your_username/.config/hypr  # Create config directory for Hyprland [*]  
-pacman -Ql hyprland | grep hyprland.conf  # Locate Hyprland config file [#]  
-cp /usr/share/hypr/hyprland.conf /home/your_username/.config/hypr/  # Copy default config [*]  
-echo '[ "$(tty)" = "/dev/tty1" ] && exec Hyprland' >> /home/your_username/.zprofile  # Autostart Hyprland on login [*]  
+== user-setup ==  
+useradd -m your_username  # Create new user and home directory [*]  
+passwd your_username  # Set user password [#]  
+usermod -aG wheel your_username  # Add user to sudo group [*]  
 
-#system-network  
-systemctl enable systemd-networkd  # Enable basic systemd networking [#]  
-systemctl enable systemd-resolved  # Enable system DNS resolver [#]  
-ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf  # Symlink DNS config [*]  
+EDITOR=your_editor_name visudo  # Safely edit sudoers file [#]  
+// Uncomment this line to allow sudo for wheel group:  
+// %wheel ALL=(ALL:ALL) ALL  
+// Exit visudo properly based on your editor (e.g. :wq in nvim)
 
-#exit-chroot  
-exit  # Exit chroot  
-umount -R /mnt  # Unmount all target system partitions [*]  
-reboot  # Reboot into your new Arch system  
-
-#nvidia-driver-install  
+== nvidia-driver ==  
 sudo pacman -S nvidia nvidia-utils nvidia-settings  # Install proprietary NVIDIA driver and tools [#]  
-sudo nvidia-xconfig  # Generate /etc/X11/xorg.conf for NVIDIA [#]  
+sudo nvidia-xconfig  # Generate /etc/X11/xorg.conf (required by some tools even if Wayland is used) [#]  
+// You can later remove /etc/X11/xorg.conf if not using X11
 
-#fonts-fallback  
-sudo pacman -S noto-fonts ttf-dejavu ttf-liberation  # Basic font families [#]  
-# Tip: Install fallback fonts if you see square or garbled characters in GUI  
+== hyprland-setup ==  
+sudo pacman -S hyprland xdg-desktop-portal-hyprland xdg-desktop-portal  # Install Hyprland and portal interface [#]  
 
-#clash-setup  
-export GOPROXY=https://goproxy.cn,direct  # Use reliable Go module proxy [*]  
-export GO111MODULE=on  # Enable Go modules [*]  
-paru -S clash-verge-rev-bin  # Install Clash Verge Rev binary from AUR [#]  
-which clash-verge-rev  # Confirm installation path [#]  
+mkdir -p /home/your_username/.config/hypr  # Create Hyprland config directory [*]  
 
-#proxy-config  
-export all_proxy="socks5://127.0.0.1:your_port"  # Set proxy if needed [*]  
-curl https://www.google.com  # Test proxy connection [#]  
+pacman -Ql hyprland | grep hyprland.conf  # Locate default config file path [#]  
+cp /usr/share/hypr/hyprland.conf /home/your_username/.config/hypr/  # Copy config to user folder [*]  
+// If unsure of path, run `pacman -Ql hyprland | grep hyprland.conf`
 
+echo '[ "$(tty)" = "/dev/tty1" ] && exec Hyprland' >> /home/your_username/.zprofile  # Auto-start Hyprland on TTY1 login [*]  
+// This ensures Hyprland starts only when logging in from tty1 using zsh
 
+== system-network ==  
+systemctl enable systemd-networkd  # Enable built-in systemd network manager [#]  
+systemctl enable systemd-resolved  # Enable DNS resolver service [#]  
+ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf  # Link DNS config path [*]  
 
+== waybar-setup ==  
+sudo pacman -S waybar  # Install Waybar [#]  
+mkdir -p /home/your_username/.config/waybar  # Create config directory [*]  
+pacman -Ql waybar | grep config  # Find config paths [#]  
+cp /usr/share/waybar/config.jsonc /home/your_username/.config/waybar/  # Copy config file [*]  
+cp /usr/share/waybar/style.css /home/your_username/.config/waybar/  # Copy style file [*]
 
+== exit-chroot ==  
+exit  # Exit from chroot environment  
+umount -R /mnt  # Recursively unmount all mounted filesystems [*]  
+reboot  # Reboot into your new Arch system  
 
 
 
